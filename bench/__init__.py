@@ -10,6 +10,7 @@ def initialize_source(connection: sqlite3.Connection) -> None:
 
     from .issued import initialize_issued_handoffs
     from .labels import initialize_labels
+    from .sampling import initialize_sampling
 
     connection.execute('PRAGMA foreign_keys = ON')
     with write_transaction(connection):
@@ -18,3 +19,4 @@ def initialize_source(connection: sqlite3.Connection) -> None:
         initialize_prediction_history(connection)
         initialize_labels(connection)
         initialize_issued_handoffs(connection)
+        initialize_sampling(connection)

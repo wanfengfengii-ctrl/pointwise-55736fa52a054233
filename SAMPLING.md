@@ -25,6 +25,24 @@ V2 JSON 包含 `version`、`trial_id`、`freeze_id`、`specimens`、`models`、`
 
 正文和回执同一次事务提交。签存失败传播原异常，回滚本次新增，可凭原接纳号重试。沿用 `archive.readback.read_report(conn, report_id)` 领取固定值及回执。V1 签发仍收 V1 交接号，V2 签发收 V2 接纳号。同一签发入口收到已存在但版本不符的材料报 `ValueError`。非法、错配及同号冲突报 `ValueError`，对应入口的有效格式未知号报 `KeyError`。保留 V1 接口、交接编码、历史报告、运行入口及完整原回归。
 
+## 方差估计口径
+
+`issue_sample_report` 在 `estimable` 时固定使用 Horvitz–Thompson 方差估计，`variance_method`
+记为 `horvitz-thompson`。记锁定总体片数为 `N`，片 `i` 的一阶入样率 `π_i` 为含 `i` 的候选
+名单权重之和，异片对 `(i, j)` 的联合入样率 `π_ij` 为同时含 `i`、`j` 的候选名单权重之和，
+并取 `π_ii = π_i`。对实抽 `S`：
+
+```
+v = (1/N²) · Σ_{i∈S} Σ_{j∈S} [(π_ij − π_i·π_j) / π_ij] · (d_i·d_j) / (π_i·π_j)
+```
+
+可复核规则：对任意固定的总体分差向量 `d`（由固定二元标签与锁定预测决定），按设计概率对
+各可能实抽结果求 `E[v]`，必等于点估计 `T = (1/N)·Σ_{i∈S} d_i/π_i` 的设计方差
+`Var(T) = E[T²] − E[T]²`。`tests/test_sampling.py` 的 `TestVarianceUnbiasedness` 对
+`fixtures/sampling.json` 中每个联合覆盖完整的设计枚举全部二元标签格局，用精确有理数核验
+该恒等式。估计值可正可负，签发保留符号原值与精确零；任一异片对 `π_ij = 0` 时记
+`joint_gap`，方差值与方法为空。
+
 ## 样例与运行
 
 `fixtures/sampling.json` 为可手算的调用数据。`models` 按甲乙排列。给每个样例的 `paired_at_lock` 录入 `base_predictions`，省略该字段时对冻结清册中的全部片录入。`after_lock` 中每项为 `[片号, 模型号, 概率]`，在锁定后按项录入，随后录入 `labels`。给预测与标签登记非空且可区分的出处。`expected` 列出关键报告值。省略方差预期表示由实现所声明的方法决定。`all_pairs` 与 `whole_blocks` 的实抽和边际率相同，只有前者有完整联合覆盖。`unequal_pairs` 锁定后更正 X 并为 W 补齐预测，仍按三片总体签出 `4/9`。`census_draw` 的抽签结果唯一，方差估计为精确零。

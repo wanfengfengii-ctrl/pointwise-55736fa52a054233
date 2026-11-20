@@ -31,6 +31,24 @@ class ReportBody:
     mean_difference: Fraction | None
 
 
+@dataclass(frozen=True)
+class SampleReportBody:
+    acceptance_id: str
+    handoff_id: str
+    trial_id: str
+    freeze_id: str
+    alpha_model: str
+    beta_model: str
+    draw_id: str
+    population_count: int
+    sample: tuple[str, ...]
+    pairs: tuple[ReportPair, ...]
+    mean_difference: Fraction
+    variance_status: str
+    variance_method: str | None
+    variance_estimate: Fraction | None
+
+
 def build_report_body(
     acceptance_id: str, handoff_id: str, handoff: HandoffBody, result: ComparisonResult,
 ) -> ReportBody:
@@ -60,16 +78,45 @@ def build_report_body(
     )
 
 
-def encode_report_body(body: ReportBody) -> str:
+def _rational_payload(value: Fraction | None) -> list[int] | None:
+    return None if value is None else [value.numerator, value.denominator]
+
+
+def encode_report_body(body: ReportBody | SampleReportBody) -> str:
     payload = asdict(body)
-    difference = body.mean_difference
-    payload['mean_difference'] = None if difference is None else [difference.numerator, difference.denominator]
+    if isinstance(body, SampleReportBody):
+        payload['version'] = 2
+        payload['mean_difference'] = _rational_payload(body.mean_difference)
+        payload['variance_estimate'] = _rational_payload(body.variance_estimate)
+    else:
+        payload['mean_difference'] = _rational_payload(body.mean_difference)
     return json.dumps(payload, sort_keys=True, separators=(',', ':'))
 
 
-def decode_report_body(body_json: str) -> ReportBody:
+def _decode_pairs(payload: dict) -> tuple[ReportPair, ...]:
+    return tuple(ReportPair(**pair) for pair in payload.pop('pairs'))
+
+
+def _decode_sample_report_body(payload: dict) -> SampleReportBody:
+    payload.pop('version')
+    pairs = _decode_pairs(payload)
+    difference = payload.pop('mean_difference')
+    estimate = payload.pop('variance_estimate')
+    sample = tuple(payload.pop('sample'))
+    return SampleReportBody(
+        **payload,
+        sample=sample,
+        pairs=pairs,
+        mean_difference=Fraction(*difference),
+        variance_estimate=None if estimate is None else Fraction(*estimate),
+    )
+
+
+def decode_report_body(body_json: str) -> ReportBody | SampleReportBody:
     payload = json.loads(body_json)
-    pairs = tuple(ReportPair(**pair) for pair in payload.pop('pairs'))
+    if payload.get('version') == 2:
+        return _decode_sample_report_body(payload)
+    pairs = _decode_pairs(payload)
     difference = payload.pop('mean_difference')
     return ReportBody(
         **payload,

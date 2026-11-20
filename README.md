@@ -18,6 +18,16 @@
 
 V1 交接 JSON 包含版本 1、试验、冻结号、有序清册、甲乙模型、完整标签和占用的预测槽。预测概率使用 `[整数分子, 正分母]`。未出现的预测槽为空。来源记录、发行和签报分别保存其固定引用。示例用 X 的甲乙预测 1/4 和 3/4、标签 1，以及只有甲预测的 Y，得到一对，甲减乙为 1/2。
 
+## V2 破坏性抽检
+
+`SAMPLING.md` 记录 V2 扩展：质控班次只对抽中片做破坏性判读。实验台在任一最终标签登记前用
+`bench.handoff.lock_sample` 按有序等大小名单、正有理权重和外部抽签值锁定唯一抽次，固定当时
+双预测齐备的总体及修订；等价重试复用原抽次。抽中片标签齐后 `bench.handoff.issue_sample_handoff`
+发行 V2 交接件。分析库沿用 `analysis.intake.accept_handoff` 首纳，离线用
+`archive.issue.issue_sample_report(conn, acceptance_id)` 按一阶入样率签总体平均 Brier 分差
+点估计；联合覆盖完整时按 `SAMPLING.md` 注明的 Horvitz–Thompson 口径签精确无偏方差，任一总体
+片对不能同抽时记 `joint_gap`、方差留空。V1 接口、编码、历史报告与运行入口保持不变。
+
 ## 运行
 
 使用 Python 3.11 标准库。平台物化后的正常回归入口为

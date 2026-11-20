@@ -3,14 +3,14 @@ from dataclasses import dataclass
 
 from trial.registry import write_transaction
 
-from .body import ReportBody, decode_report_body, encode_report_body
+from .body import ReportBody, SampleReportBody, decode_report_body, encode_report_body
 from .receipts import IssueReceipt, initialize_receipts, insert_receipt
 
 
 @dataclass(frozen=True)
 class IssuedReport:
     report_id: str
-    body: ReportBody
+    body: ReportBody | SampleReportBody
     receipt: IssueReceipt
 
 
@@ -40,7 +40,7 @@ def persist_issuance(connection: sqlite3.Connection, report: IssuedReport) -> No
         insert_receipt(connection, report.receipt)
 
 
-def load_report_body(connection: sqlite3.Connection, report_id: str) -> ReportBody:
+def load_report_body(connection: sqlite3.Connection, report_id: str) -> ReportBody | SampleReportBody:
     row = connection.execute(
         'SELECT body_json FROM reports WHERE report_id = ?', (report_id,),
     ).fetchone()
